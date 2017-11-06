@@ -1,11 +1,12 @@
+#funcao de x para calcular a i-esimo funcao da base ortonormal de cossenos
 phi<-function(i,x){
   return(sqrt(2)*cos(i*pi*x))
 }
 
+#funcao de x para calcular a i-esimo funcao da base ortonornal de  senos e cossenos
 phi2<-function(i,x){
   return(ifelse(i%%2,sqrt(2)*sin((i+1)*pi*x),sqrt(2)*cos((i*pi*x))))
-}
-
+} #PROBLEMA NÂO ESTÁ ESTIMANDO BEM A DENSIDADE
 
 #dados = amostra da funcao f
 #phi = base ortonormal
@@ -19,21 +20,22 @@ phi2<-function(i,x){
 # beta_chapeu: os coeficientes estimados da base 
 enp<-function(dados,phi,chute,r,d){
   
-  pf0<-chute$pf0
-  f0<-chute$f0
+  f0<-chute$f0 #densidade da funcao chute
+  pf0<-chute$pf0 #acumulada da funcao chute
   
   n<-length(dados)
-  z<-pf0(dados)
+  z<-pf0(dados) #criar a variavel z para que a base (funcao phi) seja ortonormal
   beta_chapeu<-rep(NA,r)
   phi_barra<-rep(NA,r)
   
+  #estimar os coeficientes betas que acompanham cada elemento da base
   for (i in 1:r){
     phi_barra[i]<-mean(phi(i,z))
     beta_chapeu[i]<-(n/(n-1+d^i))*phi_barra[i]
   }
   
+  #estimativa da funcao densidade de z (funcao p)
   p_chapeu<-function(x){
-    #out<-rep(1,length(x))
     out<-1
     for (i in 1:r){
       out<-out+beta_chapeu[i]*phi(i,x)
@@ -41,20 +43,25 @@ enp<-function(dados,phi,chute,r,d){
     return(out)
   }
   
+  #estimativa da funcao densidade dos dados (f)
   f_chapeu<-function(x){
     out<-p_chapeu(pf0(x))*f0(x)
     return(out)
   }
   
+  #fazer um plot das funcoes densidades:
+  # azul - densidade estimada pelo metodo do brunk
+  # preto - densidade estimada pelo R
   plot(density(dados))
   y<-seq(min(dados),max(dados),by=0.01)
   lines(y,f_chapeu(y),col='blue')
  
   return(list(f_chapeu=f_chapeu,
               beta_chapeu=beta_chapeu))
-}
+} #Colocar como argumento para plotar os graficos
 
-#
+#funções que recebe como argumento os dados e retorna a densidade e a acumulada
+#como parametros estimados pelo metodo dos momentos
 chute.norm<-function(dados){
   m0<-mean(dados)
   s0<-sd(dados)
@@ -84,22 +91,108 @@ b0<-(m0^3-2*m0^2+m0*v0+m0-v0)/v0
 return(list(pf0=pf0<-function(x) pbeta(x,shape1=a0,shape2=b0),
             f0=f0<-function(x) dbeta(x,shape1=a0,shape2=b0)))
 }
-#EM DESENVOLVIMENTO
-chute.mv<-function(dados,theta0,f,pf){
-  log.lik<-function(theta) dados %>% f(theta) %>% log %>% sum 
-  #sum(log(f(dados,theta=theta)))
-  theta_chapeu<-optim(theta0,log.lik)
-  return(list(pf0=function(x) pf(x,theta=theta_chapeu),
-              f0=function(x) f(x,theta=theta_chapeu)))
+
+#log.lik = log verossimilhanca
+#dados = dados
+#chute0 = chute inicial para os parametros a serem estimados
+#a funcao maximiza a log verossimlhanca e 
+#retorna as estimativas de cada um dos parametros da densidade
+
+max.log.lik<-function(log.lik,dados,chute0,lower=-Inf,upper=Inf){
+  fit<-optim(par=chute0,fn=log.lik,dados=dados,
+             control=list(fnscale=-1),method='L-BFGS-B',lower=lower,upper=upper)
+#  fit<-optim(par=fit$par,fn=log.lik,dados=dados,
+#             control=list(fnscale=-1),method='L-BFGS-B',lower=lower,upper=upper)
+  if (fit$convergence==0) 
+    theta_chapeu=fit$par
+  else 
+    print('Não convergiu')
+  return(theta_chapeu)
 }
 
+#funções que recebe como argumento os dados e retorna a densidade e a acumulada
+#como parametros estimados pelo metodo da maxima verossilhanca
+chute.norm.mv<-function(dados){
+  lik.norm<-function(theta,dados){
+    out<-sum(dnorm(dados,mean=theta[1],sd=theta[2],log=T))
+    return(out)
+  }
+  m0<-mean(dados)
+  s0<-sd(dados)
+  theta<-max.log.lik(lik.norm,dados,c(m0,s0))
+  m0<-theta[1]
+  s0<-theta[2]
+  return(list(f0=function(x) dnorm(x,mean=m0,sd=s0),
+              pf0=function(x) pnorm(x,mean=m0,sd=s0)
+  ))
+}
+chute.gama.mv<-function(dados){
+  lik.gama<-function(theta,dados){
+    out<-sum(dgamma(dados,shape=theta[1],scale=theta[2],log=T))
+    return(out)
+  }
+  v0<-sd(dados)^2
+  m0<-mean(dados)
+  s0<-v0/m0
+  a0<-m0/s0
+  theta<-max.log.lik(lik.gama,dados,c(a0,s0),lower=c(0,0))
+  a0<-theta[1]
+  s0<-theta[2]
+  return(list(pf0=pf0<-function(x) pgamma(x,shape=a0,scale=s0),
+              f0=f0<-function(x) dgamma(x,shape=a0,scale=s0)
+  ))
+}
+chute.exp.mv<-function(dados){
+  lik.exp<-function(theta,dados){
+    out<-sum(dexp(dados,rate=theta,log=T))
+    return(out)
+  }
+  rate<-1/mean(dados)
+  theta<-max.log.lik(lik.exp,dados,rate,lower=0)
+  rate<-theta
+  
+  return(list(  pf0=pf0<-function(x) pexp(x,rate=rate),
+                f0=f0<-function(x) dexp(x,rate=rate)))
+}
+chute.beta.mv<-function(dados){
+  lik.beta<-function(theta,dados){
+    out<-sum(dbeta(dados,shape1=theta[1],shape2=theta[2],log=T))
+    return(out)
+  }
+  v0<-sd(dados)^2
+  m0<-mean(dados)
+  a0<-(-m0^3+m0^2-m0*v0)/v0
+  b0<-(m0^3-2*m0^2+m0*v0+m0-v0)/v0
+  theta<-max.log.lik(lik.beta,dados,c(a0,b0),lower=c(0,0))
+  a0<-theta[1]
+  b0<-theta[2]
+  return(list(pf0=pf0<-function(x) pbeta(x,shape1=a0,shape2=b0),
+              f0=f0<-function(x) dbeta(x,shape1=a0,shape2=b0)))
+}
+
+#Testes MV
+
+dados<-rnorm(100,mean=5,sd=10)
+est<-enp(dados,phi,chute.norm.mv(dados),50,5)
+
+dados<-rbeta(10000,shape1=1.1,shape2=1)
+est<-enp(dados,phi,chute.beta.mv(dados),50,5)
+
+dados<-rgamma(10000,shape=5,scale=1/2)
+est<-enp(dados,phi,chute.gama.mv(dados),50,5)
+
+dados<-rexp(100000,5)
+est<-enp(dados,phi,chute.exp.mv(dados),1,5)
+
+dados<-rexp(100000,5)
+est<-enp(dados,phi,chute.norm.mv(dados),50,5)
+
+dados<-rexp(100000,5)
+est<-enp(dados,phi,chute.gama.mv(dados),50,5)
+
+#Testes Momentos
 dados<-rnorm(100,mean=5,sd=10)
 est<-enp(dados,phi,chute.norm(dados),50,5)
-
-dados<-rnorm(100000,mean=5,sd=10)
-pnorm2<-function(x,theta) pnorm(x,mean=theta[1],sd=theta[2])
-dnorm2<-function(x,theta) dnorm(x,mean=theta[1],sd=theta[2])
-est<-enp(dados,phi,chute.mv(dados,c(0,1),dnorm2,pnorm2),50,5)
 
 dados<-rnorm(100000,mean=0,sd=10)
 est<-enp(dados,phi,chute.norm(dados),50,5)
@@ -118,8 +211,8 @@ est<-enp(dados,phi,chute.exp(dados),1,5)
 dados<-rnorm(100000,mean=2)
 est<-enp(dados,phi,chute.exp(dados),50,5)
 
-dados<-rgamma(100000,5)
-f_chapeu<-enp(dados, phi,chute.gama(dados),50,5)
+dados<-rgamma(10000,5)
+est<-enp(dados, phi,chute.gama.mv(dados),50,5)
 
 dados<-rgamma(10000,shape=5,scale=1/2)
-f_chapeu<-enp(dados,phi,chute.gama(dados),50,5)
+est<-enp(dados,phi,chute.gama(dados),50,5)
