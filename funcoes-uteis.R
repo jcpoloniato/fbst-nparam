@@ -1,9 +1,9 @@
 #Funcoes uteis
 
+#funcao de x para calcular a i-esimo funcao da base ortonormal de cossenos
 phi<-function(i,x){
   return(sqrt(2)*cos(i*pi*x))
 }
-
 
 phi_barra<-function(dados,phi,r){
   phi_barra<-rep(NA,r)
@@ -11,4 +11,10 @@ phi_barra<-function(dados,phi,r){
     phi_barra[i]<-mean(phi(i,dados))
   } 
   return(phi_barra)
+}
+
+evalue<-function(x,n,tau){
+  eval<-sum((n*x/sqrt(n+tau))^2)
+  #eval<- n*x/sqrt(n+tau) %>% power(2) %>% sum()
+  return(eval)
 }

@@ -1,19 +1,16 @@
-#funcao de x para calcular a i-esimo funcao da base ortonormal de cossenos
-phi<-function(i,x){
-  return(sqrt(2)*cos(i*pi*x))
-}
+source(file.choose()) 
 
 #funcao de x para calcular a i-esimo funcao da base ortonornal de  senos e cossenos
 phi2<-function(i,x){
   return(ifelse(i%%2,sqrt(2)*sin((i+1)*pi*x),sqrt(2)*cos((i*pi*x))))
-} #PROBLEMA NÂO ESTÁ ESTIMANDO BEM A DENSIDADE
+} #PROBLEMA NAO ESTA ESTIMANDO BEM A DENSIDADE
 
 #dados = amostra da funcao f
 #phi = base ortonormal
 #chute = uma lista com os membros:
 # f0 = chute de densidade que se ajusta a f real
 # pf0 = acumulada da funcao chute
-#r = quantidade de funções ortogonais a serem usadas
+#r = quantidade de fun??es ortogonais a serem usadas
 #d = peso da base de ordem (d^r)
 #enp retorna uma lista com os membros: 
 # f_chapeu: a densidade estimada 
@@ -60,7 +57,7 @@ enp<-function(dados,phi,chute,r,d){
               beta_chapeu=beta_chapeu))
 } #Colocar como argumento para plotar os graficos
 
-#funções que recebe como argumento os dados e retorna a densidade e a acumulada
+#fun??es que recebe como argumento os dados e retorna a densidade e a acumulada
 #como parametros estimados pelo metodo dos momentos
 chute.norm<-function(dados){
   m0<-mean(dados)
@@ -106,11 +103,11 @@ max.log.lik<-function(log.lik,dados,chute0,lower=-Inf,upper=Inf){
   if (fit$convergence==0) 
     theta_chapeu=fit$par
   else 
-    print('Não convergiu')
+    print('Nao convergiu')
   return(theta_chapeu)
 }
 
-#funções que recebe como argumento os dados e retorna a densidade e a acumulada
+#fun??es que recebe como argumento os dados e retorna a densidade e a acumulada
 #como parametros estimados pelo metodo da maxima verossilhanca
 chute.norm.mv<-function(dados){
   lik.norm<-function(theta,dados){
