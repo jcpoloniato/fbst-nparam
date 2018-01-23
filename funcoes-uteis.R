@@ -13,8 +13,18 @@ phi_barra<-function(dados,phi,r){
   return(phi_barra)
 }
 
+#funcao que recebe como parametros os dados ja tranformados (phi barra)
+#e calcula a estatistica de teste do FBST
 evalue<-function(x,n,tau){
   eval<-sum((n*x/sqrt(n+tau))^2)
-  #eval<- n*x/sqrt(n+tau) %>% power(2) %>% sum()
-  return(eval)
+  #eval <- n*x/sqrt(n+tau) %>% power(2) %>% sum()
+  eval
+}
+
+# funcao que aplica F nos dados
+# essa funcao recebe como argumentos os dados e uma distribuicao acumulada F
+# se a F for a verdadeira distribuicao que gerou os dados eh esperado que os 
+# dados modificados tenham districuicao uniforme
+inversa<-function(dados, pf) {
+  pf(dados)
 }

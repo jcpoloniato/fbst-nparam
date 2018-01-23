@@ -57,7 +57,7 @@ enp<-function(dados,phi,chute,r,d){
               beta_chapeu=beta_chapeu))
 } #Colocar como argumento para plotar os graficos
 
-#fun??es que recebe como argumento os dados e retorna a densidade e a acumulada
+#funcoes que recebe como argumento os dados e retorna a densidade e a acumulada
 #como parametros estimados pelo metodo dos momentos
 chute.norm<-function(dados){
   m0<-mean(dados)
@@ -107,7 +107,7 @@ max.log.lik<-function(log.lik,dados,chute0,lower=-Inf,upper=Inf){
   return(theta_chapeu)
 }
 
-#fun??es que recebe como argumento os dados e retorna a densidade e a acumulada
+#funcoes que recebe como argumento os dados e retorna a densidade e a acumulada
 #como parametros estimados pelo metodo da maxima verossilhanca
 chute.norm.mv<-function(dados){
   lik.norm<-function(theta,dados){
