@@ -9,10 +9,10 @@ library(tidyverse)
 #dados - dados
 #phi -base ortonormal
 #r - tamanho da sequencia da base ortonormal
-#peso - peso para cada elemento da sequencia
+#peso - funcao do peso para cada elemento da sequencia
 ev_nmod <- function(dados, phi, r, peso){
   n <- length(dados)
-  tau <- peso^(1:r)
+  tau <- peso(1:r)
   x <- phi_barra(dados, phi, r)
   aux <- testeFBST(x, n, tau)
 
@@ -27,7 +27,7 @@ ev_nmod <- function(dados, phi, r, peso){
 #simu - numero de observacoes que devem ser geradas da distribuicao de comparacao
 ev_mod <- function(dados, phi, r, peso, simu=1000){
   n <- length(dados)
-  tau <- peso^(1:r)
+  tau <- peso(1:r)
   x <- phi_barra(dados, phi, r)
   aux <- testeFBST(x, n, tau)
   
@@ -77,10 +77,10 @@ ev_mod <- function(dados, phi, r, peso, simu=1000){
 #dados - dados
 #phi -base ortonormal
 #r - tamanho da sequencia da base ortonormal
-#peso - peso para cada elemento da sequencia
+#peso - funcao de r para cada elemento da sequencia
 #simu - numero de observacoes que devem ser geradas da distribuicao de comparacao
 #pf - funcao F que deve ser usada para padronizar os dados
-ev_mod_pf<-function(dados, phi, r = 50, peso = 5, simu=1000, pf){
+ev_mod_pf<-function(dados, phi, r = 50, peso = function(r) 5^r, simu=1000, pf){
   ev <- dados %>%  pf() %>% ev_mod(phi, r, peso, simu = simu)
   ev
 }
@@ -94,14 +94,14 @@ pvalor_ks <- function(dados, pf){
 }
 
 #essa funcao retorna uma matriz com a primeira coluna de evalor e a outra de pvalor ks
-evalor_vs_ks <- function(matriz_dados, phi, r = 50, peso = 5, pf){
+evalor_vs_ks <- function(matriz_dados, phi, r = 50, peso = function(r) 5^r, pf){
   ev <- apply(matriz_dados, 2, ev_mod_pf, phi = phi, r = r, peso = peso, pf = pf)
   pv <- apply(matriz_dados, 2, pvalor_ks, pf = pf)
   cbind(ev, pv)
 }
 
 #funcao para ver a proporcao de rejeicao fixado um alpha
-poder_ev_vs_ks <- function(matriz_dados, phi, r = 50, peso = 5, pf, alpha = 0.05){
+poder_ev_vs_ks <- function(matriz_dados, phi, r = 50, peso = function(r) 5^r, pf, alpha = 0.05){
   poder <- colMeans(evalor_vs_ks(matriz_dados, phi, r, peso, pf) < alpha)
   poder
 }
@@ -125,14 +125,13 @@ poder_ev_vs_ks <- function(matriz_dados, phi, r = 50, peso = 5, pf, alpha = 0.05
 dados <- matrix(rnorm(100000,0,1),ncol=1000)
 pf<-function(x) pnorm (x , mean=0, sd=1)
 poder_ev_vs_ks(dados, phi, pf= pf)
-poder_ev_vs_ks1(dados, phi, pf= pf)
 
 dados <- matrix(rexp(100000, rate = 2),ncol=100)
 pf<-function(x) pexp (x , rate = 2)
 poder_ev_vs_ks(dados, phi, pf= pf)
 
 #################################
-#### H0 falso ##############
+#### H0 falso ###################
 #################################
 dados <- matrix(rnorm(100000,0,1),ncol=100)
 pf<-function(x) pnorm (x , mean=5, sd=1)
@@ -236,6 +235,7 @@ mist_norm <- function (pf=function(x) pnorm (x , mean=0, sd=1), phi, probs, medi
 }
 
 #simulando poder dos testes para diferentes normais multimodais
+
 #2 modas
 medias<-seq(0,2,by=0.01)
 probs<-c(1/2,1/2)
@@ -318,9 +318,22 @@ saveRDS(dat, file = 'beta 0.5 0.5')
 #
 dat<-readRDS(file='normal')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
-  geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("normal padrao") 
+  geom_line() +
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "μ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+        #panel.grid.major = element_blank(),
+        #panel.grid.minor = element_blank(),
+        #panel.background = element_blank(),
+        #legend.position="top",
+        legend.title=element_blank(),
+        axis.text=element_text(size=15),
+        legend.text = element_text(size=15),
+        axis.title.x = element_text(size = 20, angle = 0),
+        axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:201]-dat$poder[202:402]
 dat<-data.frame(medias = dat$medias,
@@ -328,15 +341,39 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("normal padrao - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "μ")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='exponencial')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("Testando Exponencial 1") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "λ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:151]-dat$poder[152:302]
 dat<-data.frame(medias = dat$medias,
@@ -344,15 +381,39 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("exponencial - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "λ")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='normal2')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("2 modas") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "μ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:201]-dat$poder[202:402]
 dat<-data.frame(medias = dat$medias,
@@ -360,15 +421,39 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("2 modas - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "μ")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='normal3')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("3 modas") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "μ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:201]-dat$poder[202:402]
 dat<-data.frame(medias = dat$medias,
@@ -376,15 +461,39 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("3 modas - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "μ")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='normal4')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("4 modas") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "μ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:201]-dat$poder[202:402]
 dat<-data.frame(medias = dat$medias,
@@ -392,15 +501,39 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("4 modas - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "μ")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='normal5')
 ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("5 modas ") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "μ")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:201]-dat$poder[202:402]
 dat<-data.frame(medias = dat$medias,
@@ -408,15 +541,38 @@ dat<-data.frame(medias = dat$medias,
 
 ggplot(data = dat, aes(x=medias, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("5 modas - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "μ")+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='beta 0.5 0.5')
 ggplot(data = dat, aes(x=shape, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("Beta 1/2 1/2") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "α = β")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:301]-dat$poder[302:602]
 dat<-data.frame(shape = dat$shape,
@@ -424,15 +580,39 @@ dat<-data.frame(shape = dat$shape,
 
 ggplot(data = dat, aes(x=shape, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("Beta 1/2 1/2 - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "α = β")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 #
 dat<-readRDS(file='beta 11')
 ggplot(data = dat, aes(x=shape, y=poder, group=teste , colour=teste)) +
   geom_line()+
-  geom_hline(yintercept = 0.05, col='green') +
-  ggtitle("Beta 11") 
+  scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='green') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "α = β")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
 dif <- dat$poder[1:301]-dat$poder[302:602]
 dat<-data.frame(shape = dat$shape,
@@ -440,46 +620,153 @@ dat<-data.frame(shape = dat$shape,
 
 ggplot(data = dat, aes(x=shape, y=diferenca)) +
   geom_line()+
-  geom_hline(yintercept = 0, col='green') +
-  ggtitle("Beta 1 1 - diferenca entre poder ev - pv") 
+  geom_hline(yintercept = 0, col='green', linetype = "dashed") +
+  labs(y = "Poder FBST - Poder KS", x = "α = β")+  theme_bw() +
+  ylim(c(-0.15, 0.6)) +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
 
-####UNIFORME DESCONTINUA
+#DISTRIBUICAO TRIGONOMÉTRICA
 
-#funcao para gerar dados uniforme descontinua
-#n - tamanho da amostra a ser gerada da uniforme descontinua
-#a e b - paramentros da distribuicao uniforme
-#intervalo - breaks que vao ser feitos na uniforme (DEVE CONTER OS LIMITES a E b DA UNIFORME)
-unif_descontinua<-function(n=1000, a=0, b=1, intervalo=c(0,1/4,1/2,3/4,1)){
-  vetor<-runif(n,a,b)
-  condicao<-rep(TRUE,n)
-  while(sum(condicao)>0){
-    condicao<-rep(FALSE,n)
-    i<-1
-    while (i <length(intervalo)){
-      condicao <- condicao + vetor>intervalo[i]&vetor<intervalo[i+1]
-      i <- i+2
+densidade<-function(x,k){
+  abs(sin(pi*k*x)*pi/2)
+}
+
+x<-seq(0,1,by=0.001)
+fy<-densidade(x,k=5)
+dens<-data.frame(x=x, fy=fy)
+ggplot(data = dens, aes(x=x, y=fy))+
+  geom_line()+
+  ggtitle("") +
+  labs(y = "f(x,k=5)", x = "")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
+
+gerar<-function(n,k){
+  gerado<-rep(NA,n)
+  i<-1
+  while(is.na(gerado[n])){
+    aux1<- runif(1)
+    aux2<- runif(1,0,pi/2)
+
+    if(densidade(aux1,k) < aux2){
+      gerado[i]<-aux1
+      i<-i+1
     }
-    vetor[condicao] <- runif(sum(condicao), a, b)
   }
-  vetor
+gerado
 }
 
-hist(unif_descontinua(10000,0,1,seq(0,1,by=0.2))) # testando se a funcao da certo
-
-# funcao que retorna o resultado do teste FBST e KS para a distribuicao uniforme descontinua
-tunif <- function(pf = function(x) punif(x, 0, 1), phi, intervalo, n = 100, replicas = 1000){
+tseno<-function(pf = function(x) punif(x, 0, 1), phi, k, n = 1000, replicas = 1000, peso){
   nt <- n * replicas
-  vetor <- unif_descontinua(n = nt, a = intervalo[1], b =length(intervalo), intervalo=intervalo)
+  vetor <- gerar(n = nt, k = k)
   dados<-matrix(vetor, ncol=replicas, byrow=T)
-  poder_ev_vs_ks(dados, phi, pf= pf)
+  poder_ev_vs_ks(dados, phi, pf = pf, peso = peso)
 }
 
-pf = function(x) punif(x, 0, 1)
-tamanhos<-seq(0.1,0.5,by=0.01)
-poderes<- matrix(NA, nrow=length(tamanhos), ncol=2)
-for (i in 1:length(tamanhos)){
-  poderes[i,]<-tunif(pf = pf, phi=phi, intervalo = seq(0, 1, by=tamanhos[i] ))
+#mudando as prioris
+
+#n=100
+
+k<-seq(1,20,by=1)
+poderes<- matrix(NA, nrow=length(k), ncol=5)
+for (i in 1:length(k)){
+  poderes[i,1:2]<-tseno(phi=phi, k = k[i], n=100, peso=function(x) 5^x)
+  poderes[i,3]<-tseno(phi=phi, k = k[i], n=100, peso=function(x) x^5)[1]
+  poderes[i,4]<-tseno(phi=phi, k = k[i], n=100, peso=function(x) 2^x)[1]
+  poderes[i,5]<-tseno(phi=phi, k = k[i], n=100, peso=function(x) x^2)[1]
+  print(i)
 }
 
-poderes 
- #aparentemente nao existe diferenca entre ev e pv nesta distribuicao
+dat<-data.frame(k=rep(k,5),
+                poder=c(poderes[,1], poderes[,2], poderes[,3], 
+                        poderes[,4], poderes[,5]), 
+                teste=c(rep('FBST 5^r', length(k)), 
+                        rep('KS', length(k)),
+                        rep('FBST r^5', length(k)),
+                        rep('FBST 2^r', length(k)),
+                        rep('FBST r^2', length(k))
+                        )
+                )
+saveRDS(dat, file = 'seno100')
+
+#n=1000
+
+k<-seq(1,20,by=1)
+poderes<- matrix(NA, nrow=length(k), ncol=5)
+for (i in 1:length(k)){
+  poderes[i,1:2]<-tseno(phi=phi, k = k[i], n=1000, peso=function(x) 5^x)
+  poderes[i,3]<-tseno(phi=phi, k = k[i], n=1000, peso=function(x) x^5)[1]
+  poderes[i,4]<-tseno(phi=phi, k = k[i], n=1000, peso=function(x) 2^x)[1]
+  poderes[i,5]<-tseno(phi=phi, k = k[i], n=1000, peso=function(x) x^2)[1]
+  print(i)
+}
+
+dat<-data.frame(k=rep(k,5),
+                poder=c(poderes[,1], poderes[,2], poderes[,3], 
+                        poderes[,4], poderes[,5]), 
+                teste=c(rep('FBST 5^r', length(k)), 
+                        rep('KS', length(k)),
+                        rep('FBST r^5', length(k)),
+                        rep('FBST 2^r', length(k)),
+                        rep('FBST r^2', length(k))
+                )
+)
+saveRDS(dat, file = 'seno1000')
+
+#graficos 
+
+dat<-readRDS(file = 'seno100')
+ggplot(data = dat, aes(x=k, y=poder, group=teste , colour=teste)) +
+  geom_line()+
+  #scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='red') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "k")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
+
+dat<-readRDS(file = 'seno1000')
+ggplot(data = dat, aes(x=k, y=poder, group=teste , colour=teste)) +
+  geom_line()+
+  #scale_colour_discrete(labels=c("FBST", "KS"))+
+  geom_hline(yintercept = 0.05, linetype = "dashed", col='red') +
+  ggtitle("") +
+  labs(y = "Poder do teste", x = "k")+
+  theme_bw() +
+  theme(#axis.line = element_line(colour = "black"),
+    #panel.grid.major = element_blank(),
+    #panel.grid.minor = element_blank(),
+    #panel.background = element_blank(),
+    #legend.position="top",
+    legend.title=element_blank(),
+    axis.text=element_text(size=15),
+    legend.text = element_text(size=15),
+    axis.title.x = element_text(size = 20, angle = 0),
+    axis.title.y = element_text(size = 20, angle = 90))
