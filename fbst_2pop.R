@@ -69,7 +69,7 @@ for(b in 1:length(medias)){
   resul.teste<-matrix(NA,ncol=3,nrow = simulacao)
   for(a in 1:simulacao){
     data1<-rnorm(100)
-    data2<-rnorm(1000, mean=medias[b])
+    data2<-rnorm(100, mean=medias[b])
     AUX <- empirica(data1,data2)
     resul.teste[a,1] <- calculo_ev_mod(AUX,phi=phi)
     resul.teste[a,2] <- ks(AUX)
@@ -313,5 +313,142 @@ ggplot(data = dat, aes(x=medias, y=poder, group=teste , colour=teste)) +
     axis.title.y = element_text(size = 20, angle = 90))
 
 
+################################################
+### METODO 1 - SIMULANDO DIST UNIFORME PARA DEFINIR O CORTE
+################################################
 
+calculo_ev_mod_unif<-function(dados_transf, phi, r=50, peso = function(x) x^2, simu=1000){
+  n <- length(dados_transf)
+  tau <- peso(1:r)
+  x <- phi_barra(dados_transf, phi, r)
+  aux <- testeFBST(x, n, tau)
+  
+  q <- rep(NA, simu)
+  for (i in 1:simu){
+    q[i] <- testeFBST(runif(n), n, tau)
+  }
+  
+   1 - mean(q < aux)
+}
 
+simulacao<-500
+resul.teste<-matrix(NA,ncol=3,nrow = simulacao)
+for(a in 1:simulacao){
+  data1<-rnorm(100)
+  data2<-rnorm(100)
+  AUX <- empirica(data1,data2)
+  resul.teste[a,1] <- calculo_ev_mod_unif(AUX,phi=phi)
+  resul.teste[a,2] <- ks(AUX)
+  resul.teste[a,3]<-ks.test(data1,data2)$'p.value'
+  print(a)
+}
+colMeans(resul.teste<0.05)
+
+simulacao<-500
+medias<-seq(-1,1,by=0.1)
+poder <- matrix(NA, length(medias),3)  
+for(b in 1:length(medias)){
+  resul.teste<-matrix(NA,ncol=3,nrow = simulacao)
+  for(a in 1:simulacao){
+    data1<-rnorm(100)
+    data2<-rnorm(100, mean=medias[b])
+    AUX <- empirica(data1,data2)
+    resul.teste[a,1] <- calculo_ev_mod_unif(AUX,phi=phi)
+    resul.teste[a,2] <- ks(AUX)
+    resul.teste[a,3]<-ks.test(data1,data2)$'p.value'
+    #print(a)
+  }
+  poder[b,]<-colMeans(resul.teste<0.05)
+  print(b)  
+}
+
+plot(medias, poder[,3] , type='l')
+lines(medias, poder[,2] , col='green')
+lines(medias, poder[,1] , col='red')
+
+###############################################
+### METODO 2 - FAZENDO BOOTSTRAP PARA DEFINIR O CORTE 
+###############################################
+
+empirica<-function(dados1, dados2){
+  
+  n<-length(dados1)
+  m<-length(dados2)
+  
+  dado <- matrix(c(rep(1,n),rep(2,m),dados1,dados2),ncol=2,byrow = F)
+  
+  dado[,1]<-dado[,1][order(dado[,2])] #order pegaa posicao em que esta o elemento no vetor se o vetor for ordenado
+  dado[,2]<-sort(dado[,2]) #ordenar a coluna em que estao os dados
+  
+  count=0
+  aux<-rep(NA,n)
+  j<-1
+  for (i in 1:(n+m)){
+    if(dado[i,1]==1){
+      aux[j]<-count/m
+      j<-j+1
+    }
+    else
+      count=count+1
+  }
+  
+  aux
+}
+
+calculo_ev_mod_boot<-function(dados1, dados2, phi, r=50, peso = function(x) x^2, simu=500){
+  n1<-length(dados1)
+  n2<-length(dados2)  
+  dados_transf<- empirica(dados1,dados2)
+  n <- length(dados_transf)
+  tau <- peso(1:r)
+  x <- phi_barra(dados_transf, phi, r)
+  aux <- testeFBST(x, n, tau)
+  
+  q <- rep(NA, simu)
+  junto<-c(dados1,dados2)
+  for (i in 1:simu){
+    #resample <- sample(junto)
+    dat1<-sample(junto, n1, replace =T)
+    dat2<- sample(junto, n2, replace =T)
+    AUX <- empirica(dat1,dat2)  
+    X <- phi_barra(AUX, phi, r)  
+    q[i] <- testeFBST(X, n, tau)
+  }
+  
+  1 - mean(q < aux)
+}
+
+simulacao<-500
+resul.teste<-matrix(NA,ncol=3,nrow = simulacao)
+for(a in 1:simulacao){
+  data1<-rnorm(100)
+  data2<-rnorm(100)
+  #AUX <- empirica(data1,data2)
+  resul.teste[a,1] <- calculo_ev_mod_boot(data1,data2,phi=phi)
+  #resul.teste[a,2] <- ks(AUX)
+  resul.teste[a,3]<-ks.test(data1,data2)$'p.value'
+  print(a)
+}
+colMeans(resul.teste<0.05)
+
+simulacao<-500
+medias<-seq(-1,1,by=0.1)
+poder <- matrix(NA, length(medias),3)  
+for(b in 1:length(medias)){
+  resul.teste<-matrix(NA,ncol=3,nrow = simulacao)
+  for(a in 1:simulacao){
+    data1<-rnorm(100)
+    data2<-rnorm(1000, mean=medias[b])
+    AUX <- empirica(data1,data2)
+    resul.teste[a,1] <- calculo_ev_mod_boot(data1,data2,phi=phi)
+    resul.teste[a,2] <- ks(AUX)
+    resul.teste[a,3]<-ks.test(data1,data2)$'p.value'
+    #print(a)
+  }
+  poder[b,]<-colMeans(resul.teste<0.05)
+  print(b)  
+}
+
+plot(medias, poder[,3] , type='l')
+lines(medias, poder[,2] , col='green')
+lines(medias, poder[,1] , col='red')
